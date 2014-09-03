@@ -12,9 +12,6 @@
 #include "necklace.h"
 #include "transition_matrix.h"
 
-//#define CARTESIAN yes
-#define NORMAL yes
-
 //Morse potential expression
 const long double alpha=1.1563;
 const long double D=0.18748;
@@ -139,7 +136,7 @@ int main(int argc, char *argv[]){
     fictitious_masses[1]=particle_mass;
 
     for (int i=2; i<=number_of_particles; ++i){
-	fictitious_masses[i]=particle_mass*tm.eigenvalues[i]*gamma*gamma;
+	fictitious_masses[i]=particle_mass*tm.get_eigenvalue(i)*gamma*gamma;
     }
 
     //this routine uses the tm conversion matrices to initialize the NM coordinates and velocities
@@ -147,15 +144,15 @@ int main(int argc, char *argv[]){
 	nm_velocities[i]=0.0L;
 	normal_mode_coord[i]=0.0L;
 	for (int k=1; k<=number_of_particles; ++k){
-	    nm_velocities[i]+=tm.cart_to_nm[i][k]*neck_beads.particle_array[k-1].velocity;
-	    normal_mode_coord[i]+=tm.cart_to_nm[i][k]*neck_beads.particle_array[k-1].location;
+	    nm_velocities[i]+=tm.get_cart_to_nm(i,k)*neck_beads.particle_array[k-1].get_velocity();
+	    normal_mode_coord[i]+=tm.get_cart_to_nm(i,k)*neck_beads.particle_array[k-1].get_location();
 	}
     }
 
     //normal_mode_ring is the data structure which holds the positions of the NMs (important because of CMD)
     //it is also responsible for the computation of the kinetic energies associated with the fictitious Hamiltonian
     necklace normal_mode_ring;
-    normal_mode_ring.normal_modes(hbar, number_of_particles, fictitious_masses, normal_mode_coord, nm_velocities, tm.freqs, spatial_deg_of_freedom, nhc_length, dt, kT, detach_cthermo, potential_choice);
+    normal_mode_ring.normal_modes(hbar, number_of_particles, fictitious_masses, normal_mode_coord, nm_velocities, tm.freqs_, spatial_deg_of_freedom, nhc_length, dt, kT, detach_cthermo, potential_choice);
     
     //if gamma<1, we are reading in avg NM pot_E and kin_E (without spring contributions)
 
@@ -173,27 +170,8 @@ int main(int argc, char *argv[]){
 	    input_file>>pos;
 	    input_file>>vel;
 
-/*	    if (potential_choice==1) pos=std::sqrt(2*pos/spring_constant);
-
-	    else if (potential_choice==2){
-		//Morse potential, code this in once parameters are specified
-	    }
-
-	    else if (potential_choice==3){
-		//quartic formula???
-	    }
-
-	    else if (potential_choice==4){
-
-		pos*=4.0;
-		pos=std::sqrt(pos);
-		pos=std::sqrt(pos);
-
-	    }
-*/
-
-	    normal_mode_ring.particle_array[index].location=pos;
-	    normal_mode_ring.particle_array[index].velocity=vel;
+	    normal_mode_ring.particle_array[index].set_location(pos);
+	    normal_mode_ring.particle_array[index].set_velocity(vel);
 
 	    ++count;
 	}
@@ -215,31 +193,8 @@ int main(int argc, char *argv[]){
 	    input_file>>pos;
 	    input_file>>vel;
 
-	    /*
-	    vel=std::sqrt(2*vel/normal_mode_ring.particle_array[index].mass);
-
-	    if (potential_choice==1) pos=std::sqrt(2*pos/spring_constant);
-	                
-	    else if (potential_choice==2){
-		//Morse potential, code this in once parameters are specified
-            }   
-
-	    else if (potential_choice==3){
-		//quartic formula???
-	    }   
-
-	    else if (potential_choice==4){
-		pos*=4.0;
-		pos=std::sqrt(pos);
-		pos=std::sqrt(pos);
-	    }*/
-
-//	    long double total_E=pot_E+kin_E;
-
-//	    long double vel=std::sqrt(2*total_E/normal_mode_ring.particle_array[index].mass);
-
-	    normal_mode_ring.particle_array[index].location=pos;        
-	    normal_mode_ring.particle_array[index].velocity=vel;
+	    normal_mode_ring.particle_array[index].set_location(pos);        
+	    normal_mode_ring.particle_array[index].set_velocity(vel);
 
 	    ++count;
 	}
@@ -248,12 +203,19 @@ int main(int argc, char *argv[]){
     //if doing a CMD simulation (or if restarting a PIMD simulation), cartesian positions need to be updated before propagation
     if (gamma<1.0 || rstrtPIMD==1){
 	for (int i=1; i<=number_of_particles; ++i){
-	    neck_beads.particle_array[i-1].velocity=0.0L;
-	    neck_beads.particle_array[i-1].location=0.0L;
+	    neck_beads.particle_array[i-1].set_velocity(0.0L);
+	    neck_beads.particle_array[i-1].set_location(0.0L);
+
+	    long double temp_vel=0.0L;
+	    long double temp_loc=0.0L;
+
 	    for (int k=1; k<=number_of_particles; ++k){
-		neck_beads.particle_array[i-1].velocity+=tm.nm_to_cart[i][k]*normal_mode_ring.particle_array[k-1].velocity;
-		neck_beads.particle_array[i-1].location+=tm.nm_to_cart[i][k]*normal_mode_ring.particle_array[k-1].location;
+		temp_vel+=tm.get_nm_to_cart(i,k)*normal_mode_ring.particle_array[k-1].get_velocity();
+		temp_loc+=tm.get_nm_to_cart(i,k)*normal_mode_ring.particle_array[k-1].get_location();
 	    }
+
+	    neck_beads.particle_array[i-1].set_velocity(temp_vel);
+	    neck_beads.particle_array[i-1].set_location(temp_loc);
 	}
     }
 
@@ -274,52 +236,13 @@ int main(int argc, char *argv[]){
 	long double Npos=0.0L;
         long double Nkin=0.0L;
 
-#ifdef CARTESIAN
-
-	//1st part of VV algorithm
-	//calculate acceleration and thermostat scaling
-  	for (int i=0; i<number_of_particles; ++i){
-	   neck_beads.particle_array[i].acceleration=neck_beads.compute_bead_force(i)/neck_beads.particle_array[i].mass;	
-	   neck_beads.particle_array[i].integrate_thermostat(dt/2.0L);
-	}
-
-	//update velocity to dt/2, position to dt
-	for (int i=0; i<number_of_particles; ++i){
-	    neck_beads.particle_array[i].velocity+=((dt/2.0L)*neck_beads.particle_array[i].acceleration);
-	    neck_beads.particle_array[i].location+=(dt*neck_beads.particle_array[i].velocity);
-	} 
-  
-	//recompute forces
-      	for (int i=0; i<number_of_particles; ++i) neck_beads.particle_array[i].acceleration=neck_beads.compute_bead_force(i)/neck_beads.particle_array[i].mass;
-
-	//update velocity to dt, integrate thermostat to scale velocities
-	for (int i=0; i<number_of_particles; ++i){
-	    neck_beads.particle_array[i].velocity+=((dt/2.0L)*neck_beads.particle_array[i].acceleration);
-    	    neck_beads.particle_array[i].integrate_thermostat(dt/2.0L);
-	}		
-
-	//compute portions of the extended hamiltonian
-	for (int i=0; i<number_of_particles; ++i){
-	    neck_beads.particle_array[i].nhc.calculate_Nhamiltonian();
-    	    Npos+=neck_beads.particle_array[i].nhc.N_pos_H;
-	    Nkin+=neck_beads.particle_array[i].nhc.N_kin_H;
-	}
-
-	NHam    = neck_beads.compute_NHC_hamiltonian();
-	Total_E = neck_beads.compute_total_hamiltonian();
-	Kin_E   = neck_beads.kinetic_E;
-	Pot_E   = neck_beads.potential_E;
-
-#endif
-
-#ifdef NORMAL
 	long double * nm_forces=new long double[number_of_particles+1];
 
 	//compute initial forces in NM representation
 	for (int i=1; i<=number_of_particles; ++i){
 	    nm_forces[i]=0.0L;
 	    for (int k=1; k<=number_of_particles; ++k){
-		nm_forces[i]+=tm.cart_to_nm[i][k]*neck_beads.compute_bead_force(k-1)*number_of_particles;
+		nm_forces[i]+=tm.get_cart_to_nm(i,k)*neck_beads.compute_bead_force(k-1)*number_of_particles;
 	    }
 	}
 
@@ -327,36 +250,51 @@ int main(int argc, char *argv[]){
 	//(note: for CMD, there is no thermostat, so the detach_cthermo flag ensures that no discontinuities are
 	//fed into the calculations)
 	for (int i=0; i<number_of_particles; ++i){
-	    normal_mode_ring.particle_array[i].acceleration=nm_forces[i+1]/fictitious_masses[i+1];
+	    long double acc=nm_forces[i+1]/fictitious_masses[i+1];
+	    normal_mode_ring.particle_array[i].set_acceleration(acc);
 	    if (detach_cthermo==false || i!=0) normal_mode_ring.particle_array[i].integrate_thermostat(dt/2.0L);
 	}
 
 	//CAN THIS LOOP BE ROLLED INTO THE ONE ABOVE??
 	for (int i=0; i<number_of_particles; ++i){
-	    normal_mode_ring.particle_array[i].velocity+=((dt/2.0L)*normal_mode_ring.particle_array[i].acceleration);
-	    normal_mode_ring.particle_array[i].location+=(dt*normal_mode_ring.particle_array[i].velocity);
+	    long double vel=normal_mode_ring.particle_array[i].get_velocity();
+	    vel += (dt/2.0L)*normal_mode_ring.particle_array[i].get_acceleration();
+	    normal_mode_ring.particle_array[i].set_velocity(vel);
+
+	    long double loc=normal_mode_ring.particle_array[i].get_location();
+	    loc+=dt*normal_mode_ring.particle_array[i].get_velocity();
+	    normal_mode_ring.particle_array[i].set_location(loc);
 	}
 
 	//update cartesian positions in order to recompute forces
 	for (int i=1; i<=number_of_particles; ++i){
-	    neck_beads.particle_array[i-1].location=0.0L;
+	    neck_beads.particle_array[i-1].set_location(0.0L);
+
+	    long double loc=0.0L;
 	    for (int k=1; k<=number_of_particles; ++k){
-		neck_beads.particle_array[i-1].location+=tm.nm_to_cart[i][k]*normal_mode_ring.particle_array[k-1].location;//number_of_particles;
+		loc+=tm.get_nm_to_cart(i,k)*normal_mode_ring.particle_array[k-1].get_location();
 	    }
+
+	    neck_beads.particle_array[i-1].set_location(loc);
 	}
+
 	//compute updated forces in NM representation
 	//CAN THIS LOOP BE ROLLED INTO THE ONE ABOVE??
         for (int i=1; i<=number_of_particles; ++i){
 	    nm_forces[i]=0.0L;
 	    for (int k=1; k<=number_of_particles; ++k){
-		nm_forces[i]+=(tm.cart_to_nm[i][k]*neck_beads.compute_bead_force(k-1))*number_of_particles;
+		nm_forces[i]+=(tm.get_cart_to_nm(i,k)*neck_beads.compute_bead_force(k-1))*number_of_particles;
 	    }
 	}	
 
 	//continue with the second portion of VV
 	for (int i=0; i<number_of_particles; ++i){
-	    normal_mode_ring.particle_array[i].acceleration=nm_forces[i+1]/fictitious_masses[i+1];
-	    normal_mode_ring.particle_array[i].velocity+=((dt/2.0L)*normal_mode_ring.particle_array[i].acceleration);
+	    normal_mode_ring.particle_array[i].set_acceleration(nm_forces[i+1]/fictitious_masses[i+1]);
+
+	    long double vel=normal_mode_ring.particle_array[i].get_velocity();
+	    vel+=(dt/2.0L)*normal_mode_ring.particle_array[i].get_acceleration();
+	    normal_mode_ring.particle_array[i].set_velocity(vel);
+
 	    if (detach_cthermo==false || i!=0){
 	
 		normal_mode_ring.particle_array[i].integrate_thermostat(dt/2.0L);
@@ -365,28 +303,35 @@ int main(int argc, char *argv[]){
 	}
 	//update cartesian coordinates
   	for (int i=1; i<=number_of_particles; ++i){
-	    neck_beads.particle_array[i-1].velocity=0.0L;
-	    neck_beads.particle_array[i-1].location=0.0L;
+	    neck_beads.particle_array[i-1].set_velocity(0.0L);
+	    neck_beads.particle_array[i-1].set_location(0.0L);
+
+	    long double vel=0.0L;
+	    long double loc=0.0L;
 	    for (int k=1; k<=number_of_particles; ++k){
-		neck_beads.particle_array[i-1].velocity+=tm.nm_to_cart[i][k]*normal_mode_ring.particle_array[k-1].velocity;
-		neck_beads.particle_array[i-1].location+=tm.nm_to_cart[i][k]*normal_mode_ring.particle_array[k-1].location;//number_of_particles;
+		vel+=tm.get_nm_to_cart(i,k)*normal_mode_ring.particle_array[k-1].get_velocity();
+		loc+=tm.get_nm_to_cart(i,k)*normal_mode_ring.particle_array[k-1].get_location();
 	    }
+
+	    neck_beads.particle_array[i-1].set_velocity(vel);
+	    neck_beads.particle_array[i-1].set_location(loc);
+
 	}
 	//use the thermostat hamiltonian and kinetic energy contributions from the 
 	//ring representation in the normal mode coordinates...
 	NHam    = normal_mode_ring.compute_NHC_hamiltonian();
 	Total_E = normal_mode_ring.compute_total_hamiltonian();
-	Kin_E   = normal_mode_ring.kinetic_E;
-	Pot_E   = normal_mode_ring.potential_E;
+	Kin_E   = normal_mode_ring.get_necklace_KE();
+	Pot_E   = normal_mode_ring.get_necklace_PE();
 
 	//...and the potential energy contributions (both internal necklace-spring
 	//and external portions) to compute the conserved extended hamiltonian
 	long double Total_E1 = neck_beads.compute_total_hamiltonian();
-	long double bead_pot = neck_beads.bead_potential;
-	long double ext_pot  = neck_beads.classical_potential;
+	long double bead_pot = neck_beads.get_necklace_bead_potential();
+	long double ext_pot  = neck_beads.get_necklace_classical_potential();
 
-#endif
 
+/*	
 	//calculation of the barker energy estimator (for kinetic energies)
 	//this algorithm computes the summation term (eq 3.4, Cao and Berne, 1989) using the primitive algorithm
 	long double pre_factor=particle_mass*number_of_particles*kT*kT/(2*hbar*hbar);
@@ -423,10 +368,12 @@ int main(int argc, char *argv[]){
 	avg_virial_estimator*=(j-1);
 	avg_virial_estimator+=virial_estimator;
 	avg_virial_estimator/=j;
-
+*/
 	//compute the extended hamiltonian regardless of NM vs. primitive
     	conserved=(Kin_E+bead_pot+ext_pot+NHam);
 
+	
+	/*
 	long double c_kin, c_pot;
 
 	if (j%capture_rate==0){
@@ -442,7 +389,6 @@ int main(int argc, char *argv[]){
         c_pot_avg/=(j/capture_rate);
 
 	}
-
 	//for some reason the following definitions of the potential applied to the centroid are not consistent (but they do converge?) throughout the course of the CMD simulaition
 	//     originally these were written using the cartesian variables. Lets try these using the normal modes?
 
@@ -460,6 +406,7 @@ int main(int argc, char *argv[]){
 	    avg_kin[i]/=(j/capture_rate);
 	    }
 	}
+*/
 
 	delete nm_forces;
 	//this statement relays all new computed information to the screen at the given capture rate
@@ -468,14 +415,14 @@ int main(int argc, char *argv[]){
     		<<std::setw(18)<<(j*dt)
 
 		//the centroid kinetic and potential energies are conserved throughout the simulation (as detaching it from the thermostat places it in the microcanonical ensemble)
-		<<std::setw(18)<<c_kin
+/*		<<std::setw(18)<<c_kin
 		<<std::setw(18)<<c_kin_avg
        		<<std::setw(18)<<c_pot
 		<<std::setw(18)<<c_pot_avg
-
-		<<std::setw(18)<<normal_mode_ring.particle_array[0].location
+*/
+		<<std::setw(18)<<normal_mode_ring.particle_array[0].get_location()
 	   	<<std::setw(18)<<conserved
-		<<std::setw(18)<<normal_mode_ring.particle_array[0].velocity
+		<<std::setw(18)<<normal_mode_ring.particle_array[0].get_velocity()
 		<<std::setw(18)<<(avg_barker_pot+avg_barker_kin)
     		<<std::setw(18)<<avg_virial_estimator
     		<<std::setw(18)<<analytical_solution
@@ -492,7 +439,7 @@ int main(int argc, char *argv[]){
 */		
 	}
     }
-
+/*
     if (gamma==1 && detach_cthermo==false){
 	std::ofstream output_file;
 	output_file.open("PIMD.out");
@@ -517,7 +464,7 @@ int main(int argc, char *argv[]){
 		<<'\n';
 	}
     }
-
+*/
     delete fictitious_masses;
     delete normal_mode_coord;
     delete nm_velocities;

@@ -1,3 +1,7 @@
+//Author: Shelby Straight, Paesani Lab
+//Date Last Edited: 3 Sep, 2014
+
+
 #include "particle.h"
 #include <cmath>
 
@@ -7,20 +11,8 @@
 //routine ensures proper velocity scaling with the attached thermostat within the
 //framework of the Velocity-verlet algorithm
 
-
-particle::particle(){    
-    kinetic_energy=0.0;
-    potential_energy=0.0;
-    velocity=0.0;
-    omega_k=0.0;
-    location=0.0;
-    acceleration=0.0;
-}
-
 void particle::deallocate(){
-
     nhc.deallocate();
-
 }
 
 
@@ -32,6 +24,14 @@ void particle::initialize(long double mas, long double displacement, long double
     Beta=1.0L/kT;
     nhc.initialize_thermostat(ndof, chain_length, timestep, kT, velocity, mass, spring_freq);
 }
+
+//Integration scheme adapted from source code written by F. Paesani
+//For further reference on the Suzuki-Yoshida integration scheme, see
+//     ref 1
+//     ref 2
+//     ref 3
+//     ref 4
+
 
 void particle::integrate_thermostat(long double timestep){
 

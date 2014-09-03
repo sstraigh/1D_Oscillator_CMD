@@ -1,3 +1,11 @@
+//Author: Shelby Straight, Paesani Lab
+//Date Last Edited: Sep 3, 2014
+//
+//Gaussian objected compute random numbers between 0 and 1
+//This algorithm is an adaptation of code originally written
+//in fortran 90 by F. Paesani, which was originally adapted
+//from Numerical Recipes
+
 #include <cmath>
 #include <stdlib.h>
 #include <iomanip>

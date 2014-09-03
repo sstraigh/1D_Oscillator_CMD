@@ -1,26 +1,17 @@
+//Author: Shelby Straight, Paesani Lab
+//Date last edited: 3, Sep 2014
+//
+//This is the implementation file for the thermostat object.
+//It includes routines to:
+//      1. initialize the thermostat
+//      2. deallocate the memory assigned to the thermostat variables
+//      3. calculate the contribution of the thermostat object to the 
+//         extended hamiltonian
+
 #include "thermostat.h"
 #include <iomanip>
 #include <iostream>
 #include "gaussian.h"
-
-thermostat::thermostat(){
-        chain_length=0; //M in Tuckerman(2010), "size" of the chain
-	tau=0.0;
-	degrees_of_freedom=0;
-	Nhamiltonian=0.0;
-	p_mass=0.0;
-	p_velocity=0.0;
-	Beta=0.0;
-}
-void thermostat::print_status(){
-    for (int i=1; i<=chain_length; ++i){
-	std::cerr
-	    <<std::setw(18)<<nose_pos[i]
-	    <<std::setw(18)<<nose_velocity[i]
-	    <<std::setw(18)<<nose_accel[i]
-	    <<'\n';
-    }
-}
 
 void thermostat::deallocate(){
 

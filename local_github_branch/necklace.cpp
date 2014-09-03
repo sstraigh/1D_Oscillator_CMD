@@ -1,27 +1,20 @@
 #include "necklace.h"
 #include "gaussian.h"
 
-necklace::necklace(){
-
-    number_of_beads=0;
-    bead_freq=0.0;
-    m_prime=0.0;
-    spr_const=0.0;
-
-}
 void necklace::deallocate(){
 
     for (int i=0; i<number_of_beads; ++i){
 	particle_array[i].deallocate();
     }
 
+    delete particle_array;
 }
 
 long double necklace::compute_external_potential(int bead_index){
 
     long double classical_PE=0.0L;
     //harmonic potential
-    if (potential_choice==1) classical_PE=particle_array[bead_index].location*particle_array[bead_index].location*spr_const*0.5/((long double)number_of_beads);
+    if (potential_choice==1) classical_PE=particle_array[bead_index].get_location()*particle_array[bead_index].get_location()*spr_const*0.5/((long double)number_of_beads);
      
     //morse potential
     //build in this later once parameters are specified
@@ -29,14 +22,14 @@ long double necklace::compute_external_potential(int bead_index){
 
     //Anharmonic-a
     if (potential_choice==3){
-	classical_PE+=(0.5 *particle_array[bead_index].location*particle_array[bead_index].location);
-	classical_PE+=(0.1 *particle_array[bead_index].location*particle_array[bead_index].location*particle_array[bead_index].location);
-	classical_PE+=(0.01*particle_array[bead_index].location*particle_array[bead_index].location*particle_array[bead_index].location*particle_array[bead_index].location);
+	classical_PE+=(0.5 *particle_array[bead_index].get_location()*particle_array[bead_index].get_location());
+	classical_PE+=(0.1 *particle_array[bead_index].get_location()*particle_array[bead_index].get_location()*particle_array[bead_index].get_location());
+	classical_PE+=(0.01*particle_array[bead_index].get_location()*particle_array[bead_index].get_location()*particle_array[bead_index].get_location()*particle_array[bead_index].get_location());
 	classical_PE/=number_of_beads;
     } 
     //Anharmonic-b
     if (potential_choice==4){
-	classical_PE=(0.25*particle_array[bead_index].location*particle_array[bead_index].location*particle_array[bead_index].location*particle_array[bead_index].location)/((long double)number_of_beads);
+	classical_PE=(0.25*particle_array[bead_index].get_location()*particle_array[bead_index].get_location()*particle_array[bead_index].get_location()*particle_array[bead_index].get_location())/((long double)number_of_beads);
     }
 
     return classical_PE;
@@ -45,7 +38,7 @@ long double necklace::compute_external_potential(int bead_index){
 
 long double necklace::compute_bead_KE(int bead_index){
 
-    return (0.5*particle_array[bead_index].velocity*particle_array[bead_index].velocity*particle_array[bead_index].mass);
+    return (0.5*particle_array[bead_index].get_velocity()*particle_array[bead_index].get_velocity()*particle_array[bead_index].get_mass());
 
 }
 
@@ -65,10 +58,10 @@ long double necklace::compute_bead_PE(int bead_index){
     //This potential takes into account the interaction of the bead with its nearest neighbors and the springs interconnecting them
     long double quantum_interaction_PE=0.0;
 
-    long double pre_factor=0.5*bead_freq*bead_freq*particle_array[bead_index].mass;
+    long double pre_factor=0.5*bead_freq*bead_freq*particle_array[bead_index].get_mass();
 
     if (number_of_beads>1){
-	quantum_interaction_PE = (pre_factor*(particle_array[index_above].location-particle_array[bead_index].location)*(particle_array[index_above].location-particle_array[bead_index].location));
+	quantum_interaction_PE = (pre_factor*(particle_array[index_above].get_location()-particle_array[bead_index].get_location())*(particle_array[index_above].get_location()-particle_array[bead_index].get_location()));
     }
 
     bead_potential+=quantum_interaction_PE;
@@ -83,19 +76,19 @@ long double necklace::compute_external_force(int bead_index){
 
     long double classical_force=0.0L;
 
-    if (potential_choice==1) classical_force=(-1.0*spr_const*particle_array[bead_index].location)/number_of_beads;
+    if (potential_choice==1) classical_force=(-1.0*spr_const*particle_array[bead_index].get_location())/number_of_beads;
 
     else if (potential_choice==2) classical_force=0.0L;
 
     else if (potential_choice==3){
-	classical_force= (-1.0L*particle_array[bead_index].location);
-	classical_force-=(0.3L*particle_array[bead_index].location * particle_array[bead_index].location);
-	classical_force-=(0.04L*particle_array[bead_index].location* particle_array[bead_index].location *particle_array[bead_index].location);
+	classical_force= (-1.0L*particle_array[bead_index].get_location());
+	classical_force-=(0.3L*particle_array[bead_index].get_location() * particle_array[bead_index].get_location());
+	classical_force-=(0.04L*particle_array[bead_index].get_location()* particle_array[bead_index].get_location() *particle_array[bead_index].get_location());
 	classical_force/=number_of_beads;
     }
 
     else if (potential_choice==4){
-	classical_force=(-1.0L *particle_array[bead_index].location* particle_array[bead_index].location *particle_array[bead_index].location)/number_of_beads;
+	classical_force=(-1.0L *particle_array[bead_index].get_location()* particle_array[bead_index].get_location() *particle_array[bead_index].get_location())/number_of_beads;
     }
     return classical_force;
 }
@@ -110,6 +103,7 @@ long double necklace::compute_bead_force(int bead_index){
     if (index_above==number_of_beads) index_above=0;
 
     long double classical_force=this->compute_external_force(bead_index);
+
     long double spring_force=0.0;
     //Spring force takes into account the two nearest neighbor interactions between the beads-i.e., the X(k) bead feels the springs connecting it
     //to both the X(k+1) and X(k-1) beads. In the case of num_beads==1, this reduces to no net spring force, and the "classical" potential is 
@@ -118,8 +112,8 @@ long double necklace::compute_bead_force(int bead_index){
     //bead freq is dependent on the index of the bead in question (it is either omega_P or the decoupled omega_P/gamma) however, forces
     //are computed in the cartesian coordinates, where the frequencies are all the same
 
-    spring_force  =(1.0)*bead_freq*bead_freq*((particle_array[index_above].location-particle_array[bead_index].location)*particle_array[bead_index].mass);
-    spring_force+=(-1.0)*bead_freq*bead_freq*((particle_array[bead_index].location-particle_array[index_below].location)*particle_array[bead_index].mass);
+    spring_force  =(1.0)*bead_freq*bead_freq*((particle_array[index_above].get_location()-particle_array[bead_index].get_location())*particle_array[bead_index].get_mass());
+    spring_force+=(-1.0)*bead_freq*bead_freq*((particle_array[bead_index].get_location()-particle_array[index_below].get_location())*particle_array[bead_index].get_mass());
 
     long double total_force= (classical_force + spring_force);
 
