@@ -15,8 +15,23 @@ centroid_pos_auto-tcf.o: centroid_pos_auto-tcf.cpp
 create_pos_histogram.o: create_pos_histogram.cpp
 	$(CXX) -c create_pos_histogram.cpp
 
-1D-oscillator: thermostat.o 1D_oscillator.o particle.o necklace.o transition_matrix.o gaussian.o
-	$(CXX) $(CXXFLAGS) -o 1D_oscillator 1D_oscillator.o thermostat.o particle.o necklace.o transition_matrix.o gaussian.o
+1D-oscillator: thermostat.o 1D_oscillator.o particle.o necklace.o transition_matrix.o gaussian.o virial_estimator.o barker_estimator.o simulation_setup.o readin.o particle_tracker.o
+	$(CXX) $(CXXFLAGS) -o 1D_oscillator 1D_oscillator.o thermostat.o particle.o necklace.o transition_matrix.o gaussian.o virial_estimator.o barker_estimator.o simulation_setup.o readin.o particle_tracker.o
+
+particle_tracker.o: particle_tracker.cpp necklace.h
+	$(CXX) -c particle_tracker.cpp
+
+readin.o: readin.cpp
+	$(CXX) -c readin.cpp
+
+virial_estimator.o: virial_estimator.cpp necklace.h
+	$(CXX) -c virial_estimator.cpp
+
+barker_estimator.o: barker_estimator.cpp necklace.h
+	$(CXX) -c barker_estimator.cpp
+
+simulation_setup.o: simulation_setup.cpp necklace.h transition_matrix.h barker_estimator.h virial_estimator.h
+	$(CXX) -c simulation_setup.cpp
 
 thermostat.o: thermostat.cpp
 	$(CXX) -c thermostat.cpp

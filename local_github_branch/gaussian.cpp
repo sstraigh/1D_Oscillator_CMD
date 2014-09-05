@@ -15,7 +15,7 @@
 
 long double gaussian::compute_gaussian(long double vel){
     
-    srand(vel);
+    srand(time(NULL)+vel);
 
     bool is_set=false;
 

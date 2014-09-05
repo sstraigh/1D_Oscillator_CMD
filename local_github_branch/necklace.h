@@ -1,5 +1,5 @@
 //Author: Shelby Straight, UCSD, Paesani Lab summer research rotation
-//Date last edited: Sep 3, 2014
+//Date last edited: Sep 4444014
 //
 //Necklace.h is the header file which defines the data structure
 //responsible for the propagation of particle dynamics.
@@ -43,6 +43,10 @@ class necklace{
 
   void deallocate();
 
+  int get_num_beads(){return number_of_beads;}
+  long double compute_external_potential(int bead_index); 
+  long double compute_bead_KE(int bead_index);
+
  private:
   long double physical_mass;
   long double spr_const;
@@ -57,11 +61,8 @@ class necklace{
 
   long double classical_potential;
   long double bead_potential;
-
-  long double compute_bead_KE(int bead_index);
+ 
   long double compute_bead_PE(int bead_index);
-
   long double compute_external_force(int bead_index);
-  long double compute_external_potential(int bead_index);
 };
 #endif

@@ -1,0 +1,16 @@
+Number_of_Steps: 10000
+Number_of_Beads: 64
+Thermostat_Length: 8
+Temperature: 1.0
+Capture_Rate: 1000
+Gamma: 0.1
+Potential_Choice: 3
+Detach_Centroid_Thermostat: 1
+Continue_Previous_Simulation: 0
+Hbar: 1.0
+Central_Spring_Constant: 1.0
+Particle_Mass: 1.0
+Initial_Velocity: 1.0
+Initial_Position: 1.0
+Timestep: 0.0001
+Spatial_Deg_of_Freedom: 1
